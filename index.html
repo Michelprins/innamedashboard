@@ -376,7 +376,7 @@ function getDisplayStage(car) {
 
 const SUPABASE_URL = 'https://wtstkaztqevmztlkkinf.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0c3RrYXp0cWV2bXp0bGtraW5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MzkwOTIsImV4cCI6MjA5MTMxNTA5Mn0.OS3hpC0TzgfpoY8ylTT2F_9K7N4MNk7eLWls2QzWTDY';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let cars = [];
 let editingId = null;
@@ -385,14 +385,14 @@ let showKlaar = false;
 
 async function syncCar(car) {
   try {
-    const { error } = await supabase.from('inname_cars').upsert({ id: car.id, data: car });
+    const { error } = await sbClient.from('inname_cars').upsert({ id: car.id, data: car });
     if (error) console.error('Sync fout:', error);
   } catch(e) { console.error('Sync fout:', e); }
 }
 
 async function deleteCarFromDB(id) {
   try {
-    const { error } = await supabase.from('inname_cars').delete().eq('id', id);
+    const { error } = await sbClient.from('inname_cars').delete().eq('id', id);
     if (error) console.error('Delete fout:', error);
   } catch(e) { console.error('Delete fout:', e); }
 }
@@ -400,13 +400,13 @@ async function deleteCarFromDB(id) {
 async function init() {
   const board = document.getElementById('kanbanBoard');
   board.innerHTML = '<div style="padding:40px;text-align:center;color:#999;font-size:14px">Verbinding maken...</div>';
-  const { data, error } = await supabase.from('inname_cars').select('data');
+  const { data, error } = await sbClient.from('inname_cars').select('data');
   if (error) {
     board.innerHTML = '<div style="padding:40px;text-align:center;color:var(--red);font-size:13px">Verbindingsfout — controleer internet.</div>';
     return;
   }
   cars = (data || []).map(row => row.data);
-  supabase.channel('inname_realtime')
+  sbClient.channel('inname_realtime')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'inname_cars' }, payload => {
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const car = payload.new.data;
