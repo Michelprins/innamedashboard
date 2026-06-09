@@ -349,6 +349,7 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const STEPS = [
   'Innemen',
@@ -373,20 +374,52 @@ function getDisplayStage(car) {
   return s === 5 ? 7 : s + 1;
 }
 
-let cars = JSON.parse(localStorage.getItem('bourguignon_cars_v2') || '[]');
-// migrate old data if needed
-if (!cars.length) {
-  const old = JSON.parse(localStorage.getItem('bourguignon_cars') || '[]');
-  if (old.length) {
-    cars = old.map(c => ({ ...c, checklist: [false,false,false,false,false] }));
-    save();
-  }
-}
+const SUPABASE_URL = 'https://wtstkaztqevmztlkkinf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0c3RrYXp0cWV2bXp0bGtraW5mIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3MzkwOTIsImV4cCI6MjA5MTMxNTA5Mn0.OS3hpC0TzgfpoY8ylTT2F_9K7N4MNk7eLWls2QzWTDY';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let cars = [];
 let editingId = null;
 let currentView = 'kanban';
 let showKlaar = false;
 
-function save() { localStorage.setItem('bourguignon_cars_v2', JSON.stringify(cars)); }
+async function syncCar(car) {
+  try {
+    const { error } = await supabase.from('inname_cars').upsert({ id: car.id, data: car });
+    if (error) console.error('Sync fout:', error);
+  } catch(e) { console.error('Sync fout:', e); }
+}
+
+async function deleteCarFromDB(id) {
+  try {
+    const { error } = await supabase.from('inname_cars').delete().eq('id', id);
+    if (error) console.error('Delete fout:', error);
+  } catch(e) { console.error('Delete fout:', e); }
+}
+
+async function init() {
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = '<div style="padding:40px;text-align:center;color:#999;font-size:14px">Verbinding maken...</div>';
+  const { data, error } = await supabase.from('inname_cars').select('data');
+  if (error) {
+    board.innerHTML = '<div style="padding:40px;text-align:center;color:var(--red);font-size:13px">Verbindingsfout — controleer internet.</div>';
+    return;
+  }
+  cars = (data || []).map(row => row.data);
+  supabase.channel('inname_realtime')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'inname_cars' }, payload => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const car = payload.new.data;
+        const idx = cars.findIndex(c => c.id === car.id);
+        if (idx !== -1) cars[idx] = car; else cars.push(car);
+      } else if (payload.eventType === 'DELETE') {
+        cars = cars.filter(c => c.id !== payload.old.id);
+      }
+      render();
+    })
+    .subscribe();
+  if (window.innerWidth <= 640) setView('table'); else render();
+}
 
 function getStage(car) {
   const cl = car.checklist || [false,false,false,false,false];
@@ -563,7 +596,7 @@ function toggleRepair(carId, repairId) {
   const car = cars.find(c => c.id === carId);
   if (!car || !car.repairs) return;
   const rep = car.repairs.find(r => r.id === repairId);
-  if (rep) { rep.done = !rep.done; save(); render(); }
+  if (rep) { rep.done = !rep.done; render(); syncCar(car); }
 }
 
 function toggleStep(id, stepIdx) {
@@ -571,8 +604,8 @@ function toggleStep(id, stepIdx) {
   if (!car) return;
   if (!car.checklist) car.checklist = [false,false,false,false,false];
   car.checklist[stepIdx] = !car.checklist[stepIdx];
-  save();
   render();
+  syncCar(car);
 }
 
 function renderTable() {
@@ -674,22 +707,25 @@ function saveCar() {
   };
   if (editingId) {
     const idx = cars.findIndex(c => c.id === editingId);
-    if (idx !== -1) cars[idx] = { ...cars[idx], ...data };
+    if (idx !== -1) { cars[idx] = { ...cars[idx], ...data }; syncCar(cars[idx]); }
   } else {
     data.id = Date.now().toString(36) + Math.random().toString(36).slice(2);
     data.createdAt = new Date().toISOString();
     data.checklist = [false, false, false, false, false];
     cars.push(data);
+    syncCar(data);
   }
-  save(); closeModal(); render();
+  closeModal(); render();
 }
 
 function deleteCurrentCar() {
   if (!editingId) return;
   const car = cars.find(c => c.id === editingId);
   if (!car || !confirm(`Weet je zeker dat je ${car.kenteken} wilt verwijderen?`)) return;
-  cars = cars.filter(c => c.id !== editingId);
-  save(); closeModal(); render();
+  const delId = editingId;
+  cars = cars.filter(c => c.id !== delId);
+  deleteCarFromDB(delId);
+  closeModal(); render();
 }
 
 function exportData() {
@@ -715,7 +751,7 @@ function bevestigBinnenkomst(id) {
   if (!car) return;
   car.verwacht = false;
   car.datumInname = new Date().toISOString().split('T')[0];
-  save(); render();
+  render(); syncCar(car);
 }
 
 // Repair rows in modal
@@ -803,14 +839,11 @@ function terugzetten(id) {
     if (cl[i]) { cl[i] = false; break; }
   }
   car.checklist = cl;
-  save(); render();
+  render(); syncCar(car);
 }
 
-// Op mobiel standaard lijstweergave
-if (window.innerWidth <= 640) setView('table');
-
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-render();
+init();
 </script>
 </body>
 </html>
