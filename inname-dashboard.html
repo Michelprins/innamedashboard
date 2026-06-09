@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#111111">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Inname">
+<title>Inname Dashboard — Bourguignon</title>
+<link rel="manifest" href="data:application/json,{%22name%22:%22Inname%20Dashboard%22,%22short_name%22:%22Inname%22,%22start_url%22:%22.%22,%22display%22:%22standalone%22,%22background_color%22:%22%23111111%22,%22theme_color%22:%22%23111111%22,%22icons%22:[{%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3E%3Crect%20width='100'%20height='100'%20rx='20'%20fill='%23111'/%3E%3Ctext%20y='.9em'%20font-size='80'%20x='10'%3E%F0%9F%9A%97%3C/text%3E%3C/svg%3E%22,%22sizes%22:%22any%22,%22type%22:%22image/svg+xml%22}]}">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --orange: #f97316;
+    --orange-dark: #ea6c0a;
+    --black: #111111;
+    --black-soft: #1e1e1e;
+    --green: #16a34a;
+    --red: #dc2626;
+    --gray-bg: #f5f5f5;
+    --gray-border: #e2e2e2;
+    --text: #111111;
+    --text-muted: #6b7280;
+    --white: #ffffff;
+    /* kolom kleuren */
+    --s0: #94a3b8; --s1: #6366f1; --s2: #f59e0b; --s3: #ef4444; --s4: #06b6d4; --s5: #8b5cf6; --s6: #f97316; --s7: #16a34a;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--gray-bg); color: var(--text); min-height: 100vh; }
+
+  /* HEADER */
+  header { background: var(--black); color: white; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 58px; }
+  .logo { display: flex; align-items: center; gap: 16px; }
+  .logo-text { font-size: 16px; font-weight: 800; color: white; letter-spacing: -0.3px; }
+  .logo-text span { color: var(--orange); }
+  .logo-divider { width: 1px; height: 22px; background: rgba(255,255,255,0.2); }
+  .logo-sub { font-size: 13px; color: rgba(255,255,255,0.5); font-weight: 500; letter-spacing: 0.3px; }
+  .header-right { display: flex; gap: 8px; align-items: center; }
+
+  /* BUTTONS */
+  .btn { padding: 7px 16px; border-radius: 5px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; }
+  .btn-primary { background: var(--orange); color: white; }
+  .btn-primary:hover { background: var(--orange-dark); }
+  .btn-header { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.18); }
+  .btn-header:hover { background: rgba(255,255,255,0.18); }
+  .btn-ghost { background: white; color: var(--text-muted); border: 1px solid var(--gray-border); }
+  .btn-ghost:hover { background: var(--gray-bg); }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-danger:hover { background: #b91c1c; }
+
+  /* STATS */
+  .stats-bar { background: white; border-bottom: 1px solid var(--gray-border); padding: 0 24px; display: flex; gap: 0; }
+  .stat { padding: 16px 28px 14px; border-right: 1px solid var(--gray-border); position: relative; }
+  .stat::after { content:''; position:absolute; bottom:0; left:24px; right:24px; height:3px; border-radius:2px 2px 0 0; }
+  .stat.s-total::after { background: var(--orange); }
+  .stat.s-active::after { background: #6366f1; }
+  .stat.s-klaar::after { background: var(--green); }
+  .stat.s-extern::after { background: var(--orange); }
+  .stat.s-overdue::after { background: var(--red); }
+  .stat-num { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
+  .stat-num.orange { color: var(--orange); }
+  .stat-num.green { color: var(--green); }
+  .stat-num.red { color: var(--red); }
+  .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.8px; margin-top: 3px; font-weight: 600; }
+
+  /* TOOLBAR */
+  .toolbar { padding: 14px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: white; border-bottom: 1px solid var(--gray-border); }
+  .view-toggle { display: flex; border: 1px solid var(--gray-border); border-radius: 5px; overflow: hidden; }
+  .view-btn { padding: 6px 16px; font-size: 12px; font-weight: 700; border: none; background: transparent; cursor: pointer; color: var(--text-muted); transition: all 0.15s; text-transform: uppercase; letter-spacing: 0.4px; }
+  .view-btn.active { background: var(--black); color: white; }
+  .search-input { padding: 7px 12px 7px 34px; border: 1px solid var(--gray-border); border-radius: 5px; font-size: 13px; width: 240px; background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%236b7280' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E") no-repeat 10px center; }
+  .search-input:focus { outline: 2px solid var(--orange); border-color: transparent; }
+  .filter-select { padding: 7px 12px; border: 1px solid var(--gray-border); border-radius: 5px; font-size: 13px; background: white; cursor: pointer; }
+  .filter-select:focus { outline: 2px solid var(--orange); }
+
+  /* KANBAN */
+  .kanban-wrap { padding: 20px 24px 24px; overflow-x: auto; }
+  .kanban { display: flex; gap: 12px; min-width: max-content; }
+  .column { width: 242px; background: white; border-radius: 8px; border: 1px solid var(--gray-border); display: flex; flex-direction: column; max-height: calc(100vh - 230px); box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .col-header { padding: 11px 14px; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between; }
+  .col-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: white; }
+  .col-badge { background: rgba(255,255,255,0.25); color: white; font-size: 11px; font-weight: 700; padding: 1px 8px; border-radius: 10px; }
+  .col-body { padding: 10px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+  .empty-col { text-align: center; padding: 24px 10px; color: #c0c0c0; font-size: 12px; }
+
+  /* CARD */
+  .card { background: white; border: 1px solid var(--gray-border); border-radius: 7px; padding: 11px 12px; cursor: default; transition: box-shadow 0.15s, border-color 0.15s; }
+  .card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.09); border-color: #ccc; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .card-kenteken { font-size: 14px; font-weight: 800; letter-spacing: 1px; color: var(--text); font-family: monospace; }
+  .card-edit { background: none; border: none; cursor: pointer; font-size: 13px; color: #ccc; padding: 0 2px; }
+  .card-edit:hover { color: var(--orange); }
+  .card-model { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-weight: 500; }
+  .card-meta { font-size: 11px; color: #aaa; margin-top: 4px; }
+  .card-deadline { font-size: 11px; margin-top: 3px; font-weight: 600; }
+  .card-deadline.overdue { color: var(--red); }
+  .card-deadline.soon { color: var(--orange); }
+  .card-deadline.ok { color: var(--green); }
+  .card-note { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* CHECKLIST */
+  .checklist { margin-top: 8px; border-top: 1px solid #f0f0f0; padding-top: 7px; display: flex; flex-direction: column; gap: 3px; }
+  .check-item { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 2px 0; }
+  .check-item input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color: var(--green); flex-shrink: 0; }
+  .check-item label { font-size: 11px; cursor: pointer; user-select: none; color: var(--text); }
+  .check-item.done label { color: #bbb; text-decoration: line-through; }
+  .progress-bar { height: 3px; background: #f0f0f0; border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--orange); border-radius: 2px; transition: width 0.3s; }
+
+  /* UITBESTEDINGEN */
+  .repairs-section { margin-top: 8px; border-top: 1px solid #f0f0f0; padding-top: 7px; }
+  .repairs-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; }
+  .repair-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+  .repair-item input[type=checkbox] { width: 13px; height: 13px; cursor: pointer; accent-color: var(--green); flex-shrink: 0; }
+  .repair-info { flex: 1; min-width: 0; }
+  .repair-desc { font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .repair-vendor { font-size: 10px; color: var(--text-muted); }
+  .repair-item.done .repair-desc { text-decoration: line-through; color: #bbb; }
+  .repair-del { background: none; border: none; cursor: pointer; color: #ddd; font-size: 12px; padding: 0 2px; }
+  .repair-del:hover { color: var(--red); }
+  .repair-list-modal { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .repair-row { display: flex; gap: 8px; align-items: center; background: var(--gray-bg); border-radius: 6px; padding: 7px 10px; }
+  .repair-row-fields { flex: 1; display: flex; gap: 6px; }
+  .repair-row input[type=text] { flex: 1; padding: 5px 8px; border: 1px solid var(--gray-border); border-radius: 5px; font-size: 12px; background: white; }
+  .repair-row input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--green); cursor: pointer; }
+  .btn-add-repair { background: none; border: 1px dashed var(--gray-border); border-radius: 6px; padding: 6px 12px; font-size: 12px; color: var(--text-muted); cursor: pointer; width: 100%; text-align: center; }
+  .btn-add-repair:hover { border-color: var(--orange); color: var(--orange); background: #fff8f3; }
+  .extern-badge { display: inline-block; background: #fff3e0; border: 1px solid #f97316; color: #c2410c; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+
+  /* TABLE */
+  .table-wrap { padding: 20px 24px 24px; display: none; }
+  .table-wrap.active { display: block; }
+  .kanban-wrap.active { display: block; }
+  table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid var(--gray-border); }
+  thead { background: var(--black); color: white; }
+  th { padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; }
+  td { padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #fafafa; }
+  .stage-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; color: white; }
+  .progress-mini { display: flex; gap: 3px; align-items: center; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #e5e5e5; flex-shrink: 0; }
+  .dot.done { background: var(--orange); }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: white; border-radius: 10px; padding: 28px; width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 64px rgba(0,0,0,0.3); }
+  .modal h2 { font-size: 17px; font-weight: 800; margin-bottom: 20px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .modal h2::before { content:''; display:inline-block; width:4px; height:18px; background:var(--orange); border-radius:2px; }
+  .form-row { margin-bottom: 14px; }
+  .form-row label { display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .form-row input, .form-row select, .form-row textarea { width: 100%; padding: 9px 12px; border: 1px solid var(--gray-border); border-radius: 5px; font-size: 14px; font-family: inherit; transition: border-color 0.15s; }
+  .form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: 2px solid var(--orange); border-color: transparent; }
+  .form-row textarea { resize: vertical; min-height: 70px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--gray-border); }
+
+  /* MOBIEL */
+  @media (max-width: 640px) {
+    header { padding: 0 14px; height: 50px; }
+    .logo-text { font-size: 14px; }
+    .logo-sub, .logo-divider { display: none; }
+    .btn-header { display: none; }
+    .btn-primary { padding: 6px 12px; font-size: 12px; }
+
+    /* Stats: horizontaal scrollbaar */
+    .stats-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+    .stats-bar::-webkit-scrollbar { display: none; }
+    .stat { padding: 10px 16px 9px; flex-shrink: 0; }
+    .stat-num { font-size: 22px; }
+    .stat-label { font-size: 9px; }
+
+    /* Toolbar: alles op volle breedte */
+    .toolbar { padding: 10px 12px; gap: 7px; flex-direction: column; align-items: stretch; }
+    .view-toggle { width: 100%; }
+    .view-btn { flex: 1; text-align: center; padding: 8px; }
+    .search-input { width: 100%; }
+    .filter-select { width: 100%; }
+
+    /* Kanban: horizontaal scrollbaar, compacte kolommen */
+    .kanban-wrap { padding: 12px 12px 80px; }
+    .kanban { gap: 10px; }
+    .column { width: 200px; max-height: calc(100vh - 280px); }
+    .col-title { font-size: 10px; }
+
+    /* Lijst: mobiele kaart-layout ipv brede tabel */
+    .table-wrap { padding: 12px 12px 80px; }
+    table, thead, tbody, th, td, tr { display: block; }
+    thead { display: none; }
+    tr { background: white; border: 1px solid var(--gray-border); border-radius: 8px; margin-bottom: 10px; padding: 12px; position: relative; }
+    tr:hover td { background: transparent; }
+    td { border: none; padding: 2px 0; font-size: 13px; }
+    td:empty { display: none; }
+    td[data-label]::before { content: attr(data-label); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted); display: block; margin-bottom: 1px; }
+    td:last-child { position: absolute; top: 10px; right: 10px; padding: 0; }
+
+    /* Modal: slide-up vanuit onderkant */
+    .modal-overlay.open { align-items: flex-end; }
+    .modal { padding: 20px 16px 30px; border-radius: 16px 16px 0 0; width: 100%; max-width: 100%; max-height: 93vh; }
+    .form-grid { grid-template-columns: 1fr; gap: 0; }
+    .modal-actions { flex-wrap: wrap; }
+    .modal-actions .btn { flex: 1; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-text">Bourguignon <span>Occasions</span></div>
+    <div class="logo-divider"></div>
+    <div class="logo-sub">Inname Dashboard</div>
+  </div>
+  <div class="header-right">
+    <button class="btn btn-header" onclick="exportData()">↓ Export CSV</button>
+    <button class="btn btn-primary" onclick="openModal()">+ Auto toevoegen</button>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stat s-total"><div class="stat-num orange" id="statTotal">0</div><div class="stat-label">Totaal</div></div>
+  <div class="stat s-active"><div class="stat-num" id="statActive">0</div><div class="stat-label">In behandeling</div></div>
+  <div class="stat s-klaar"><div class="stat-num green" id="statKlaar">0</div><div class="stat-label">Klaar</div></div>
+  <div class="stat s-extern"><div class="stat-num orange" id="statExtern">0</div><div class="stat-label">Extern</div></div>
+  <div class="stat s-overdue"><div class="stat-num red" id="statOverdue">0</div><div class="stat-label">Verlaat</div></div>
+</div>
+
+<div class="toolbar">
+  <div class="view-toggle">
+    <button class="view-btn active" id="btnKanban" onclick="setView('kanban')">Kanban</button>
+    <button class="view-btn" id="btnTable" onclick="setView('table')">Lijst</button>
+  </div>
+  <input type="text" class="search-input" placeholder="Zoek kenteken of model..." id="searchInput" oninput="render()">
+  <select class="filter-select" id="filterStage" onchange="render()">
+    <option value="">Alle stappen</option>
+    <option value="0">Verwacht</option>
+    <option value="1">Innemen</option>
+    <option value="2">Advertentie maken</option>
+    <option value="3">Naar WP voor MPI</option>
+    <option value="4">Foto's maken</option>
+    <option value="5">Werkstroom starten</option>
+    <option value="6">Extern</option>
+    <option value="7">Klaar</option>
+  </select>
+  <button id="btnVoltooide" onclick="toggleKlaar()" class="btn btn-ghost" style="white-space:nowrap">
+    ✓ Voltooide auto's (<span id="klaarCount">0</span>)
+  </button>
+</div>
+
+<div class="kanban-wrap active" id="kanbanView">
+  <div class="kanban" id="kanbanBoard"></div>
+</div>
+
+<div class="table-wrap" id="tableView">
+  <table>
+    <thead>
+      <tr>
+        <th>Kenteken</th>
+        <th>Merk / Model</th>
+        <th>Innamedatum</th>
+        <th>Huidige stap</th>
+        <th>Voortgang</th>
+        <th>Deadline</th>
+        <th>Notities</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+</div>
+
+<datalist id="leveranciersList">
+  <option value="ABC Banden">
+  <option value="Bourguignon Schade">
+  <option value="Colors Cleaning">
+  <option value="Piebe Bruining Uitdeuken">
+  <option value="Stickerdirect">
+  <option value="VDVAS Harkema">
+</datalist>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOnBg(event)">
+  <div class="modal">
+    <h2 id="modalTitle">Auto toevoegen</h2>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>Kenteken *</label>
+        <div style="position:relative">
+          <input type="text" id="fKenteken" placeholder="XX-123-X" style="text-transform:uppercase;width:100%" oninput="onKentekenInput(this.value)">
+          <span id="rdwStatus" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text-muted)"></span>
+        </div>
+      </div>
+      <div class="form-row">
+        <label>Merk</label>
+        <select id="fMerk">
+          <option value="">Selecteer...</option>
+          <option>Volkswagen</option>
+          <option>Audi</option>
+          <option>Škoda</option>
+          <option>SEAT</option>
+          <option>CUPRA</option>
+          <option>Andere</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>Model</label>
+        <input type="text" id="fModel" placeholder="bijv. Golf, A3, Octavia">
+      </div>
+      <div class="form-row">
+        <label>Info (bouwjaar / km)</label>
+        <input type="text" id="fInfo" placeholder="bijv. 2021 | 45.000 km">
+      </div>
+    </div>
+    <div class="form-row" style="display:flex;align-items:center;gap:10px;background:var(--gray-bg);padding:10px 12px;border-radius:8px">
+      <input type="checkbox" id="fVerwacht" style="width:16px;height:16px;accent-color:var(--orange);cursor:pointer" onchange="toggleVerwachtFields()">
+      <label for="fVerwacht" style="font-size:13px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text)">Auto staat nog gepland (verwacht)</label>
+    </div>
+    <div class="form-grid">
+      <div class="form-row" id="rowVerwachtDatum" style="display:none">
+        <label>Verwachte datum</label>
+        <input type="date" id="fVerwachtDatum">
+      </div>
+      <div class="form-row">
+        <label>Innamedatum</label>
+        <input type="date" id="fDatumInname">
+      </div>
+      <div class="form-row">
+        <label>Deadline online</label>
+        <input type="date" id="fDeadline">
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Uitbestedingen / reparaties</label>
+      <div class="repair-list-modal" id="repairList"></div>
+      <button type="button" class="btn-add-repair" onclick="addRepairRow()">+ Reparatie toevoegen</button>
+    </div>
+    <div class="form-row">
+      <label>Notities / bijzonderheden</label>
+      <textarea id="fNotes" placeholder="Schade, afspraken, bijzonderheden..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Annuleren</button>
+      <button class="btn btn-danger" id="btnDelete" onclick="deleteCurrentCar()" style="display:none">Verwijderen</button>
+      <button class="btn btn-primary" onclick="saveCar()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STEPS = [
+  'Innemen',
+  'Advertentie maken',
+  'Naar WP voor MPI',
+  "Foto's maken",
+  'Werkstroom starten / Adverteren'
+];
+// 0=Verwacht, 1-5=stappen, 6=Extern, 7=Klaar
+const STAGE_COLORS = ['--s0','--s1','--s2','--s3','--s4','--s5','--s6','--s7'];
+const STAGE_LABELS = ['Verwacht', ...STEPS, 'Extern', 'Klaar'];
+
+function isExtern(car) {
+  return (car.repairs || []).some(r => !r.done && r.vendor);
+}
+
+// Visuele kolom: 0=Verwacht, 1-5=checklist stappen, 6=Extern, 7=Klaar
+function getDisplayStage(car) {
+  if (car.verwacht) return 0;
+  if (isExtern(car)) return 6;
+  const s = getStage(car);
+  return s === 5 ? 7 : s + 1;
+}
+
+let cars = JSON.parse(localStorage.getItem('bourguignon_cars_v2') || '[]');
+// migrate old data if needed
+if (!cars.length) {
+  const old = JSON.parse(localStorage.getItem('bourguignon_cars') || '[]');
+  if (old.length) {
+    cars = old.map(c => ({ ...c, checklist: [false,false,false,false,false] }));
+    save();
+  }
+}
+let editingId = null;
+let currentView = 'kanban';
+let showKlaar = false;
+
+function save() { localStorage.setItem('bourguignon_cars_v2', JSON.stringify(cars)); }
+
+function getStage(car) {
+  const cl = car.checklist || [false,false,false,false,false];
+  const idx = cl.indexOf(false);
+  return idx === -1 ? 5 : idx;
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const [y,m,da] = d.split('-');
+  return `${da}-${m}-${y}`;
+}
+
+function deadlineStatus(deadline, stage) {
+  if (!deadline || stage === 5) return null;
+  const now = new Date(); now.setHours(0,0,0,0);
+  const dl = new Date(deadline); dl.setHours(0,0,0,0);
+  const diff = Math.round((dl - now) / 86400000);
+  if (diff < 0) return { cls: 'overdue', text: `${Math.abs(diff)}d verlaat` };
+  if (diff <= 3) return { cls: 'soon', text: `Deadline: ${fmtDate(deadline)}` };
+  return { cls: 'ok', text: `Deadline: ${fmtDate(deadline)}` };
+}
+
+function getFiltered() {
+  const q = (document.getElementById('searchInput').value || '').toLowerCase();
+  const fs = document.getElementById('filterStage').value;
+  return cars.filter(c => {
+    const matchQ = !q || c.kenteken.toLowerCase().includes(q) || (c.merk||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q);
+    const matchS = fs === '' || String(getDisplayStage(c)) === fs;
+    return matchQ && matchS;
+  });
+}
+
+function render() {
+  updateStats();
+  if (currentView === 'kanban') renderKanban();
+  else renderTable();
+}
+
+function updateStats() {
+  const now = new Date(); now.setHours(0,0,0,0);
+  document.getElementById('statTotal').textContent = cars.length;
+  document.getElementById('statActive').textContent = cars.filter(c => !c.verwacht && getStage(c) < 5).length;
+  const klaarNum = cars.filter(c => getDisplayStage(c) === 7).length;
+  document.getElementById('statKlaar').textContent = klaarNum;
+  document.getElementById('klaarCount').textContent = klaarNum;
+  const btnV = document.getElementById('btnVoltooide');
+  if (btnV) btnV.style.background = showKlaar ? 'var(--black)' : '';
+  if (btnV) btnV.style.color = showKlaar ? 'white' : '';
+  document.getElementById('statExtern').textContent = cars.filter(c => isExtern(c)).length;
+  document.getElementById('statOverdue').textContent = cars.filter(c => c.deadline && getStage(c) < 5 && new Date(c.deadline) < now).length;
+}
+
+function makeColumn(label, color, cars, board, sublabel) {
+  const col = document.createElement('div');
+  col.className = 'column';
+  const subHtml = sublabel ? `<span style="font-size:9px;opacity:0.75;display:block;margin-top:1px">${sublabel}</span>` : '';
+  col.innerHTML = `
+    <div class="col-header" style="background:${color}">
+      <div><span class="col-title">${label}</span>${subHtml}</div>
+      <span class="col-badge">${cars.length}</span>
+    </div>
+    <div class="col-body"></div>
+  `;
+  const body = col.querySelector('.col-body');
+  if (!cars.length) body.innerHTML = '<div class="empty-col">Geen auto\'s</div>';
+  else cars.forEach(car => body.appendChild(buildCard(car)));
+  board.appendChild(col);
+}
+
+function renderKanban() {
+  const filtered = getFiltered();
+  const board = document.getElementById('kanbanBoard');
+  board.innerHTML = '';
+
+  // Vaste kolommen 0-5 (Verwacht + 5 stappen), sla Extern (6) over
+  for (let si = 0; si <= 5; si++) {
+    const stageCars = filtered.filter(c => getDisplayStage(c) === si);
+    makeColumn(STAGE_LABELS[si], `var(${STAGE_COLORS[si]})`, stageCars, board);
+  }
+
+  // Dynamische kolommen per leverancier
+  const filterStage = document.getElementById('filterStage').value;
+  const showExtern = filterStage === '' || filterStage === '6';
+  if (showExtern) {
+    const vendors = [...new Set(
+      cars.flatMap(c => (c.repairs||[]).filter(r => !r.done && r.vendor).map(r => r.vendor))
+    )].sort();
+    vendors.forEach(vendor => {
+      const vendorCars = filtered.filter(c =>
+        isExtern(c) && (c.repairs||[]).some(r => !r.done && r.vendor === vendor)
+      );
+      if (vendorCars.length || filterStage === '6') {
+        makeColumn(vendor, `var(${STAGE_COLORS[6]})`, vendorCars, board, 'Extern');
+      }
+    });
+    if (!vendors.length) {
+      makeColumn('Extern', `var(${STAGE_COLORS[6]})`, [], board);
+    }
+  }
+
+  // Klaar kolom (7) - alleen tonen als showKlaar aan staat
+  if (showKlaar) {
+    const klaarCars = filtered.filter(c => getDisplayStage(c) === 7);
+    makeColumn(STAGE_LABELS[7], `var(${STAGE_COLORS[7]})`, klaarCars, board);
+  }
+}
+
+function buildCard(car) {
+  const stage = getStage(car);
+  const dl = deadlineStatus(car.deadline, stage);
+  const cl = car.checklist || [false,false,false,false,false];
+  const displayStage = getDisplayStage(car);
+  const done = cl.filter(Boolean).length;
+  const pct = Math.round(done / STEPS.length * 100);
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  const dlHtml = dl ? `<div class="card-deadline ${dl.cls}">⏱ ${dl.text}</div>` : '';
+  const noteHtml = car.notes ? `<div class="card-note" title="${car.notes}">📝 ${car.notes}</div>` : '';
+  const metaHtml = [fmtDate(car.datumInname) ? `Inname: ${fmtDate(car.datumInname)}` : '', car.info].filter(Boolean).join(' · ');
+
+  const checkHtml = STEPS.map((step, i) => `
+    <div class="check-item ${cl[i] ? 'done' : ''}" onclick="toggleStep('${car.id}', ${i})">
+      <input type="checkbox" ${cl[i] ? 'checked' : ''} onclick="event.stopPropagation(); toggleStep('${car.id}', ${i})">
+      <label>${step}</label>
+    </div>
+  `).join('');
+
+  const repairs = car.repairs || [];
+  // Extern badge: open reparaties bij externe leverancier
+  const openRepairs = repairs.filter(r => !r.done && r.vendor);
+  const externVendors = [...new Set(openRepairs.map(r => r.vendor))];
+  const externBadgeHtml = externVendors.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${externVendors.map(v => `<span class="extern-badge">📍 ${v}</span>`).join('')}</div>`
+    : '';
+
+  const repairsHtml = repairs.length ? `
+    <div class="repairs-section">
+      <div class="repairs-header"><span>🔧 Uitbestedingen</span><span style="color:${repairs.every(r=>r.done)?'var(--green)':'var(--accent)'}">${repairs.filter(r=>r.done).length}/${repairs.length} klaar</span></div>
+      ${repairs.map(r => `
+        <div class="repair-item ${r.done?'done':''}">
+          <input type="checkbox" ${r.done?'checked':''} onclick="toggleRepair('${car.id}','${r.id}')">
+          <div class="repair-info">
+            <div class="repair-desc">${r.desc}</div>
+            ${r.vendor ? `<div class="repair-vendor">📍 ${r.vendor}</div>` : ''}
+          </div>
+        </div>`).join('')}
+    </div>` : '';
+
+  card.innerHTML = `
+    <div class="card-top">
+      <div>
+        <div class="card-kenteken">${car.kenteken}</div>
+        <div class="card-model">${[car.merk, car.model].filter(Boolean).join(' ')}</div>
+      </div>
+      <button class="card-edit" onclick="openModal('${car.id}')" title="Bewerken">✏️</button>
+    </div>
+    ${metaHtml ? `<div class="card-meta">${metaHtml}</div>` : ''}
+    ${car.verwacht && car.verwachtDatum ? `<div class="card-meta" style="color:var(--blue);font-weight:600">📅 Verwacht: ${fmtDate(car.verwachtDatum)}</div>` : ''}
+    ${car.verwacht ? `<button onclick="bevestigBinnenkomst('${car.id}')" style="margin-top:6px;width:100%;padding:6px;background:var(--orange);color:white;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">✓ Auto is binnen</button>` : ''}
+    ${externBadgeHtml}
+    ${dlHtml}${noteHtml}
+    ${!car.verwacht ? `<div class="checklist">${checkHtml}</div>` : ''}
+    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    ${repairsHtml}
+    ${displayStage === 7 ? `<button onclick="terugzetten('${car.id}')" style="margin-top:8px;width:100%;padding:5px;background:#f5f5f5;color:var(--text-muted);border:1px solid var(--gray-border);border-radius:5px;font-size:11px;font-weight:600;cursor:pointer">↩ Terugzetten</button>` : ''}
+  `;
+  return card;
+}
+
+function toggleRepair(carId, repairId) {
+  const car = cars.find(c => c.id === carId);
+  if (!car || !car.repairs) return;
+  const rep = car.repairs.find(r => r.id === repairId);
+  if (rep) { rep.done = !rep.done; save(); render(); }
+}
+
+function toggleStep(id, stepIdx) {
+  const car = cars.find(c => c.id === id);
+  if (!car) return;
+  if (!car.checklist) car.checklist = [false,false,false,false,false];
+  car.checklist[stepIdx] = !car.checklist[stepIdx];
+  save();
+  render();
+}
+
+function renderTable() {
+  const filtered = getFiltered();
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = '';
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:30px">Geen auto\'s gevonden</td></tr>';
+    return;
+  }
+  const tableFiltered = showKlaar ? filtered : filtered.filter(c => getDisplayStage(c) !== 7);
+  if (!tableFiltered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#999;padding:30px">Geen auto\'s gevonden</td></tr>';
+    return;
+  }
+  tableFiltered.forEach(car => {
+    const stage = getDisplayStage(car);
+    const cl = car.checklist || [false,false,false,false,false];
+    const color = `var(${STAGE_COLORS[stage]})`;
+    const dl = deadlineStatus(car.deadline, getStage(car));
+    const dots = cl.map(d => `<div class="dot ${d ? 'done' : ''}"></div>`).join('');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td data-label="Kenteken" style="font-family:monospace;font-weight:800;color:var(--text);font-size:15px">${car.kenteken}</td>
+      <td data-label="Merk / Model">${[car.merk, car.model].filter(Boolean).join(' ') || '—'}</td>
+      <td data-label="Innamedatum">${fmtDate(car.datumInname) || '—'}</td>
+      <td data-label="Stap"><span class="stage-badge" style="background:${color}">${STAGE_LABELS[stage]}</span></td>
+      <td data-label="Voortgang"><div class="progress-mini">${dots}</div></td>
+      <td data-label="Deadline">${dl ? `<span class="card-deadline ${dl.cls}">${dl.text}</span>` : '—'}</td>
+      <td data-label="Notities" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${car.notes || '—'}</td>
+      <td><button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openModal('${car.id}')">✏️</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+function setView(v) {
+  currentView = v;
+  document.getElementById('btnKanban').classList.toggle('active', v === 'kanban');
+  document.getElementById('btnTable').classList.toggle('active', v === 'table');
+  document.getElementById('kanbanView').classList.toggle('active', v === 'kanban');
+  document.getElementById('tableView').classList.toggle('active', v === 'table');
+  render();
+}
+
+function openModal(id) {
+  editingId = id || null;
+  document.getElementById('btnDelete').style.display = id ? 'inline-block' : 'none';
+  document.getElementById('modalTitle').textContent = id ? 'Auto bewerken' : 'Auto toevoegen';
+  if (id) {
+    const car = cars.find(c => c.id === id);
+    if (!car) return;
+    document.getElementById('fKenteken').value = car.kenteken;
+    document.getElementById('fMerk').value = car.merk || '';
+    document.getElementById('fModel').value = car.model || '';
+    document.getElementById('fVerwacht').checked = !!car.verwacht;
+    document.getElementById('fVerwachtDatum').value = car.verwachtDatum || '';
+    document.getElementById('fDatumInname').value = car.datumInname || '';
+    document.getElementById('fDeadline').value = car.deadline || '';
+    document.getElementById('fInfo').value = car.info || '';
+    document.getElementById('fNotes').value = car.notes || '';
+    loadRepairRows(car.repairs || []);
+    toggleVerwachtFields();
+  } else {
+    document.getElementById('fKenteken').value = '';
+    document.getElementById('fMerk').value = '';
+    document.getElementById('fModel').value = '';
+    document.getElementById('fVerwacht').checked = false;
+    document.getElementById('fVerwachtDatum').value = '';
+    document.getElementById('fDatumInname').value = '';
+    document.getElementById('fDeadline').value = '';
+    document.getElementById('fInfo').value = '';
+    document.getElementById('fNotes').value = '';
+    setRdwStatus('', '');
+    loadRepairRows([]);
+    toggleVerwachtFields();
+  }
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('fKenteken').focus(), 100);
+}
+
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); editingId = null; }
+function closeModalOnBg(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
+
+function saveCar() {
+  const kenteken = document.getElementById('fKenteken').value.trim().toUpperCase();
+  if (!kenteken) { alert('Vul een kenteken in.'); return; }
+  const data = {
+    kenteken,
+    merk: document.getElementById('fMerk').value,
+    model: document.getElementById('fModel').value.trim(),
+    verwacht: document.getElementById('fVerwacht').checked,
+    verwachtDatum: document.getElementById('fVerwachtDatum').value,
+    datumInname: document.getElementById('fDatumInname').value,
+    deadline: document.getElementById('fDeadline').value,
+    info: document.getElementById('fInfo').value.trim(),
+    notes: document.getElementById('fNotes').value.trim(),
+    repairs: collectRepairRows(),
+  };
+  if (editingId) {
+    const idx = cars.findIndex(c => c.id === editingId);
+    if (idx !== -1) cars[idx] = { ...cars[idx], ...data };
+  } else {
+    data.id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    data.createdAt = new Date().toISOString();
+    data.checklist = [false, false, false, false, false];
+    cars.push(data);
+  }
+  save(); closeModal(); render();
+}
+
+function deleteCurrentCar() {
+  if (!editingId) return;
+  const car = cars.find(c => c.id === editingId);
+  if (!car || !confirm(`Weet je zeker dat je ${car.kenteken} wilt verwijderen?`)) return;
+  cars = cars.filter(c => c.id !== editingId);
+  save(); closeModal(); render();
+}
+
+function exportData() {
+  const rows = [['Kenteken','Merk','Model','Info','Innamedatum','Deadline','Stap',...STEPS,'Notities']];
+  cars.forEach(c => {
+    const cl = c.checklist || [false,false,false,false,false];
+    rows.push([c.kenteken,c.merk||'',c.model||'',c.info||'',c.datumInname||'',c.deadline||'',STAGE_LABELS[getStage(c)],...cl.map(v=>v?'Ja':'Nee'),c.notes||'']);
+  });
+  const csv = rows.map(r => r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download = `inname-export-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+function toggleVerwachtFields() {
+  const isV = document.getElementById('fVerwacht').checked;
+  document.getElementById('rowVerwachtDatum').style.display = isV ? 'block' : 'none';
+}
+
+function bevestigBinnenkomst(id) {
+  const car = cars.find(c => c.id === id);
+  if (!car) return;
+  car.verwacht = false;
+  car.datumInname = new Date().toISOString().split('T')[0];
+  save(); render();
+}
+
+// Repair rows in modal
+function loadRepairRows(repairs) {
+  const list = document.getElementById('repairList');
+  list.innerHTML = '';
+  repairs.forEach(r => addRepairRow(r));
+}
+
+function addRepairRow(r) {
+  const list = document.getElementById('repairList');
+  const id = (r && r.id) || (Date.now().toString(36) + Math.random().toString(36).slice(2));
+  const div = document.createElement('div');
+  div.className = 'repair-row';
+  div.dataset.id = id;
+  div.innerHTML = `
+    <div class="repair-row-fields">
+      <input type="text" placeholder="Omschrijving (bijv. bumper spuiten)" value="${r ? r.desc||'' : ''}" data-field="desc">
+      <input type="text" list="leveranciersList" placeholder="Leverancier" value="${r ? r.vendor||'' : ''}" data-field="vendor" style="max-width:160px">
+    </div>
+    <input type="checkbox" title="Klaar" ${r && r.done ? 'checked' : ''} data-field="done">
+    <button type="button" class="repair-del" onclick="this.parentElement.remove()" title="Verwijderen">✕</button>
+  `;
+  list.appendChild(div);
+}
+
+function collectRepairRows() {
+  return [...document.querySelectorAll('#repairList .repair-row')].map(row => ({
+    id: row.dataset.id,
+    desc: row.querySelector('[data-field=desc]').value.trim(),
+    vendor: row.querySelector('[data-field=vendor]').value.trim(),
+    done: row.querySelector('[data-field=done]').checked,
+  })).filter(r => r.desc);
+}
+
+// RDW lookup
+let rdwTimer = null;
+const MERK_MAP = { 'VOLKSWAGEN':'Volkswagen','AUDI':'Audi','SKODA':'Škoda','SEAT':'SEAT','CUPRA':'CUPRA' };
+
+function onKentekenInput(val) {
+  clearTimeout(rdwTimer);
+  const clean = val.replace(/-/g,'').toUpperCase();
+  if (clean.length < 6) { setRdwStatus('',''); return; }
+  setRdwStatus('⏳','#999');
+  rdwTimer = setTimeout(() => fetchRDW(clean), 500);
+}
+
+async function fetchRDW(kenteken) {
+  try {
+    const res = await fetch(`https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken=${kenteken}`);
+    const data = await res.json();
+    if (!data || !data.length) { setRdwStatus('Niet gevonden','var(--red)'); return; }
+    const v = data[0];
+    const merk = (v.merk||'').toUpperCase().trim();
+    const model = toTitleCase(v.handelsbenaming||'');
+    const bouwjaar = v.datum_eerste_toelating ? v.datum_eerste_toelating.substring(0,4) : '';
+    const merkEl = document.getElementById('fMerk');
+    if (MERK_MAP[merk]) merkEl.value = MERK_MAP[merk]; else if (merk) merkEl.value = 'Andere';
+    const modelEl = document.getElementById('fModel');
+    if (!modelEl.value) modelEl.value = model;
+    const infoEl = document.getElementById('fInfo');
+    if (!infoEl.value && bouwjaar) infoEl.value = bouwjaar;
+    setRdwStatus('✓ Gevonden','var(--green)');
+  } catch(e) { setRdwStatus('Fout','var(--red)'); }
+}
+
+function setRdwStatus(text, color) {
+  const el = document.getElementById('rdwStatus');
+  if (el) { el.textContent = text; el.style.color = color; }
+}
+
+function toTitleCase(str) { return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
+
+function toggleKlaar() {
+  showKlaar = !showKlaar;
+  render();
+}
+
+function terugzetten(id) {
+  const car = cars.find(c => c.id === id);
+  if (!car) return;
+  // Zet laatste afgevinkte stap terug
+  const cl = car.checklist || [false,false,false,false,false];
+  for (let i = cl.length - 1; i >= 0; i--) {
+    if (cl[i]) { cl[i] = false; break; }
+  }
+  car.checklist = cl;
+  save(); render();
+}
+
+// Op mobiel standaard lijstweergave
+if (window.innerWidth <= 640) setView('table');
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+render();
+</script>
+</body>
+</html>
