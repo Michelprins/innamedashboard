@@ -58,6 +58,10 @@
   .stat.s-extern::after { background: var(--orange); }
   .stat.s-overdue::after { background: var(--red); }
   .stat.s-alert::after { background: var(--red); }
+  .stat.s-alert { cursor: pointer; transition: background 0.15s; }
+  .stat.s-alert:hover { background: #fef2f2; }
+  .stat.s-alert.active { background: var(--red); }
+  .stat.s-alert.active .stat-num, .stat.s-alert.active .stat-label { color: white; }
   .stat-num { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
   .stat-num.orange { color: var(--orange); }
   .stat-num.green { color: var(--green); }
@@ -228,7 +232,7 @@
   <div class="stat s-klaar"><div class="stat-num green" id="statKlaar">0</div><div class="stat-label">Klaar</div></div>
   <div class="stat s-extern"><div class="stat-num orange" id="statExtern">0</div><div class="stat-label">Extern</div></div>
   <div class="stat s-overdue"><div class="stat-num red" id="statOverdue">0</div><div class="stat-label">Verlaat</div></div>
-  <div class="stat s-alert"><div class="stat-num red" id="statAlert">0</div><div class="stat-label">⚠️ Actie nodig</div></div>
+  <div class="stat s-alert" id="statAlertTile" onclick="toggleAlertFilter()" title="Klik om alleen auto's met actie nodig te tonen"><div class="stat-num red" id="statAlert">0</div><div class="stat-label">⚠️ Actie nodig</div></div>
 </div>
 
 <div class="toolbar">
@@ -425,6 +429,12 @@ let cars = [];
 let editingId = null;
 let currentView = 'kanban';
 let showKlaar = false;
+let showOnlyAlert = false;
+
+function toggleAlertFilter() {
+  showOnlyAlert = !showOnlyAlert;
+  render();
+}
 
 async function syncCar(car) {
   try {
@@ -492,7 +502,8 @@ function getFiltered() {
   return cars.filter(c => {
     const matchQ = !q || c.kenteken.toLowerCase().includes(q) || (c.merk||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q);
     const matchS = fs === '' || String(getDisplayStage(c)) === fs;
-    return matchQ && matchS;
+    const matchAlert = !showOnlyAlert || hasAlert(c);
+    return matchQ && matchS && matchAlert;
   });
 }
 
@@ -515,6 +526,8 @@ function updateStats() {
   document.getElementById('statExtern').textContent = cars.filter(c => isExtern(c)).length;
   document.getElementById('statOverdue').textContent = cars.filter(c => c.deadline && getStage(c) < 5 && new Date(c.deadline) < now).length;
   document.getElementById('statAlert').textContent = cars.filter(c => hasAlert(c)).length;
+  const alertTile = document.getElementById('statAlertTile');
+  if (alertTile) alertTile.classList.toggle('active', showOnlyAlert);
 }
 
 function makeColumn(label, color, cars, board, sublabel) {
