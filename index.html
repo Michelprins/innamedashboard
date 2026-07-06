@@ -57,6 +57,7 @@
   .stat.s-klaar::after { background: var(--green); }
   .stat.s-extern::after { background: var(--orange); }
   .stat.s-overdue::after { background: var(--red); }
+  .stat.s-alert::after { background: var(--red); }
   .stat-num { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
   .stat-num.orange { color: var(--orange); }
   .stat-num.green { color: var(--green); }
@@ -86,6 +87,9 @@
   /* CARD */
   .card { background: white; border: 1px solid var(--gray-border); border-radius: 7px; padding: 11px 12px; cursor: default; transition: box-shadow 0.15s, border-color 0.15s; }
   .card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.09); border-color: #ccc; }
+  .card.card-alert { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+  .card-alert-badge { font-size: 11px; font-weight: 700; color: var(--red); margin-top: 5px; background: #fee2e2; padding: 3px 7px; border-radius: 4px; display: inline-block; }
+  .extern-badge.alert { background: #fee2e2; border-color: var(--red); color: var(--red); }
   .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
   .card-kenteken { font-size: 14px; font-weight: 800; letter-spacing: 1px; color: var(--text); font-family: monospace; }
   .card-edit { background: none; border: none; cursor: pointer; font-size: 13px; color: #ccc; padding: 0 2px; }
@@ -224,6 +228,7 @@
   <div class="stat s-klaar"><div class="stat-num green" id="statKlaar">0</div><div class="stat-label">Klaar</div></div>
   <div class="stat s-extern"><div class="stat-num orange" id="statExtern">0</div><div class="stat-label">Extern</div></div>
   <div class="stat s-overdue"><div class="stat-num red" id="statOverdue">0</div><div class="stat-label">Verlaat</div></div>
+  <div class="stat s-alert"><div class="stat-num red" id="statAlert">0</div><div class="stat-label">⚠️ Actie nodig</div></div>
 </div>
 
 <div class="toolbar">
@@ -332,6 +337,10 @@
         <input type="date" id="fDeadline">
       </div>
     </div>
+    <div class="form-row" id="rowChecklist" style="display:none">
+      <label>Stappen afvinken</label>
+      <div id="modalChecklist" style="display:flex;flex-direction:column;gap:7px;margin-top:4px;padding:10px 12px;background:var(--gray-bg);border-radius:6px"></div>
+    </div>
     <div class="form-row">
       <label>Uitbestedingen / reparaties</label>
       <div class="repair-list-modal" id="repairList"></div>
@@ -364,6 +373,40 @@ const STAGE_LABELS = ['Verwacht', ...STEPS, 'Extern', 'Klaar'];
 
 function isExtern(car) {
   return (car.repairs || []).some(r => !r.done && r.vendor);
+}
+
+// ===== Signalering: auto's die te lang blijven staan =====
+const ALERT_WERKDAGEN = 5; // aantal werkdagen voordat we een waarschuwing tonen
+
+function businessDaysSince(dateStr) {
+  if (!dateStr) return 0;
+  const from = new Date(dateStr); from.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (isNaN(from) || today <= from) return 0;
+  let count = 0;
+  const d = new Date(from);
+  while (d < today) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) count++;
+  }
+  return count;
+}
+
+// Auto staat op 'Verwacht' maar de verwachte datum is al > 5 werkdagen geleden -> waarschijnlijk al binnen, niet afgemeld
+function isVerwachtAlert(car) {
+  return !!(car.verwacht && car.verwachtDatum && businessDaysSince(car.verwachtDatum) >= ALERT_WERKDAGEN);
+}
+
+// Reparatie staat al > 5 werkdagen open bij een externe leverancier
+function isRepairAlert(car, r) {
+  if (!r || !r.vendor || r.done) return false;
+  const ref = r.openedAt || car.datumInname || car.createdAt;
+  return businessDaysSince(ref) >= ALERT_WERKDAGEN;
+}
+
+function hasAlert(car) {
+  return isVerwachtAlert(car) || (car.repairs || []).some(r => isRepairAlert(car, r));
 }
 
 // Visuele kolom: 0=Verwacht, 1-5=checklist stappen, 6=Extern, 7=Klaar
@@ -471,6 +514,7 @@ function updateStats() {
   if (btnV) btnV.style.color = showKlaar ? 'white' : '';
   document.getElementById('statExtern').textContent = cars.filter(c => isExtern(c)).length;
   document.getElementById('statOverdue').textContent = cars.filter(c => c.deadline && getStage(c) < 5 && new Date(c.deadline) < now).length;
+  document.getElementById('statAlert').textContent = cars.filter(c => hasAlert(c)).length;
 }
 
 function makeColumn(label, color, cars, board, sublabel) {
@@ -537,11 +581,12 @@ function buildCard(car) {
   const pct = Math.round(done / STEPS.length * 100);
 
   const card = document.createElement('div');
-  card.className = 'card';
+  card.className = 'card' + (hasAlert(car) ? ' card-alert' : '');
 
   const dlHtml = dl ? `<div class="card-deadline ${dl.cls}">⏱ ${dl.text}</div>` : '';
   const noteHtml = car.notes ? `<div class="card-note" title="${car.notes}">📝 ${car.notes}</div>` : '';
   const metaHtml = [fmtDate(car.datumInname) ? `Inname: ${fmtDate(car.datumInname)}` : '', car.info].filter(Boolean).join(' · ');
+  const verwachtAlertHtml = isVerwachtAlert(car) ? `<div class="card-alert-badge">⚠️ Waarschijnlijk al binnen — nagaan &amp; afmelden</div>` : '';
 
   const checkHtml = STEPS.map((step, i) => `
     <div class="check-item ${cl[i] ? 'done' : ''}" onclick="toggleStep('${car.id}', ${i})">
@@ -554,8 +599,9 @@ function buildCard(car) {
   // Extern badge: open reparaties bij externe leverancier
   const openRepairs = repairs.filter(r => !r.done && r.vendor);
   const externVendors = [...new Set(openRepairs.map(r => r.vendor))];
+  const staleVendors = new Set(openRepairs.filter(r => isRepairAlert(car, r)).map(r => r.vendor));
   const externBadgeHtml = externVendors.length
-    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${externVendors.map(v => `<span class="extern-badge">📍 ${v}</span>`).join('')}</div>`
+    ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${externVendors.map(v => `<span class="extern-badge${staleVendors.has(v) ? ' alert' : ''}">📍 ${v}${staleVendors.has(v) ? ' ⚠️' : ''}</span>`).join('')}</div>`
     : '';
 
   const repairsHtml = repairs.length ? `
@@ -566,7 +612,7 @@ function buildCard(car) {
           <input type="checkbox" ${r.done?'checked':''} onclick="toggleRepair('${car.id}','${r.id}')">
           <div class="repair-info">
             <div class="repair-desc">${r.desc}</div>
-            ${r.vendor ? `<div class="repair-vendor">📍 ${r.vendor}</div>` : ''}
+            ${r.vendor ? `<div class="repair-vendor" style="${isRepairAlert(car, r) ? 'color:var(--red);font-weight:700' : ''}">📍 ${r.vendor}${isRepairAlert(car, r) ? ' — ⚠️ al ' + businessDaysSince(r.openedAt || car.datumInname || car.createdAt) + ' werkdagen open' : ''}</div>` : ''}
           </div>
         </div>`).join('')}
     </div>` : '';
@@ -581,6 +627,7 @@ function buildCard(car) {
     </div>
     ${metaHtml ? `<div class="card-meta">${metaHtml}</div>` : ''}
     ${car.verwacht && car.verwachtDatum ? `<div class="card-meta" style="color:var(--blue);font-weight:600">📅 Verwacht: ${fmtDate(car.verwachtDatum)}</div>` : ''}
+    ${verwachtAlertHtml}
     ${car.verwacht ? `<button onclick="bevestigBinnenkomst('${car.id}')" style="margin-top:6px;width:100%;padding:6px;background:var(--orange);color:white;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">✓ Auto is binnen</button>` : ''}
     ${externBadgeHtml}
     ${dlHtml}${noteHtml}
@@ -668,6 +715,8 @@ function openModal(id) {
     document.getElementById('fInfo').value = car.info || '';
     document.getElementById('fNotes').value = car.notes || '';
     loadRepairRows(car.repairs || []);
+    loadModalChecklist(car.checklist || [false,false,false,false,false]);
+    document.getElementById('rowChecklist').style.display = 'block';
     toggleVerwachtFields();
   } else {
     document.getElementById('fKenteken').value = '';
@@ -681,6 +730,7 @@ function openModal(id) {
     document.getElementById('fNotes').value = '';
     setRdwStatus('', '');
     loadRepairRows([]);
+    document.getElementById('rowChecklist').style.display = 'none';
     toggleVerwachtFields();
   }
   document.getElementById('modalOverlay').classList.add('open');
@@ -693,6 +743,7 @@ function closeModalOnBg(e) { if (e.target === document.getElementById('modalOver
 function saveCar() {
   const kenteken = document.getElementById('fKenteken').value.trim().toUpperCase();
   if (!kenteken) { alert('Vul een kenteken in.'); return; }
+  const modalCl = STEPS.map((_, i) => { const cb = document.getElementById('mStep' + i); return cb ? cb.checked : false; });
   const data = {
     kenteken,
     merk: document.getElementById('fMerk').value,
@@ -705,6 +756,7 @@ function saveCar() {
     notes: document.getElementById('fNotes').value.trim(),
     repairs: collectRepairRows(),
   };
+  if (editingId) data.checklist = modalCl;
   if (editingId) {
     const idx = cars.findIndex(c => c.id === editingId);
     if (idx !== -1) { cars[idx] = { ...cars[idx], ...data }; syncCar(cars[idx]); }
@@ -754,6 +806,20 @@ function bevestigBinnenkomst(id) {
   render(); syncCar(car);
 }
 
+// Checklist in modal
+function loadModalChecklist(cl) {
+  const container = document.getElementById('modalChecklist');
+  if (!container) return;
+  container.innerHTML = STEPS.map((step, i) => `
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;padding:2px 0">
+      <input type="checkbox" id="mStep${i}" ${cl[i] ? 'checked' : ''}
+        style="width:15px;height:15px;accent-color:var(--green);cursor:pointer;flex-shrink:0"
+        onchange="this.nextElementSibling.style.textDecoration=this.checked?'line-through':'none';this.nextElementSibling.style.color=this.checked?'#bbb':''">
+      <span style="${cl[i] ? 'text-decoration:line-through;color:#bbb' : ''}">${step}</span>
+    </label>
+  `).join('');
+}
+
 // Repair rows in modal
 function loadRepairRows(repairs) {
   const list = document.getElementById('repairList');
@@ -767,6 +833,7 @@ function addRepairRow(r) {
   const div = document.createElement('div');
   div.className = 'repair-row';
   div.dataset.id = id;
+  div.dataset.opened = (r && r.openedAt) || '';
   div.innerHTML = `
     <div class="repair-row-fields">
       <input type="text" placeholder="Omschrijving (bijv. bumper spuiten)" value="${r ? r.desc||'' : ''}" data-field="desc">
@@ -779,12 +846,21 @@ function addRepairRow(r) {
 }
 
 function collectRepairRows() {
-  return [...document.querySelectorAll('#repairList .repair-row')].map(row => ({
-    id: row.dataset.id,
-    desc: row.querySelector('[data-field=desc]').value.trim(),
-    vendor: row.querySelector('[data-field=vendor]').value.trim(),
-    done: row.querySelector('[data-field=done]').checked,
-  })).filter(r => r.desc);
+  const today = new Date().toISOString().split('T')[0];
+  return [...document.querySelectorAll('#repairList .repair-row')].map(row => {
+    const vendor = row.querySelector('[data-field=vendor]').value.trim();
+    const done = row.querySelector('[data-field=done]').checked;
+    let opened = row.dataset.opened || '';
+    // Eerste keer dat deze reparatie een leverancier heeft en nog niet klaar is: startdatum vastleggen
+    if (!opened && vendor && !done) opened = today;
+    return {
+      id: row.dataset.id,
+      desc: row.querySelector('[data-field=desc]').value.trim(),
+      vendor,
+      done,
+      openedAt: opened,
+    };
+  }).filter(r => r.desc);
 }
 
 // RDW lookup
