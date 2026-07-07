@@ -872,7 +872,10 @@ function renderAgenda() {
           <div class="agenda-vendor">📍 ${r.vendor} — ${r.desc}</div>
           <div>${[car.merk, car.model].filter(Boolean).join(' ')}</div>
         </div>
-        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openModal('${car.id}')">✏️</button>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:var(--green);border-color:var(--green)" onclick="toggleRepair('${car.id}','${r.id}')" title="Markeer als klaar">✓ Klaar</button>
+          <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openModal('${car.id}')" title="Bewerken">✏️</button>
+        </div>
       `};
     }
     const a = item.a;
@@ -884,7 +887,10 @@ function renderAgenda() {
         <div class="agenda-vendor">📍 ${a.vendor} (geen specifieke auto)</div>
         <div>${a.notitie || ''}</div>
       </div>
-      <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openAfspraakModal('${a.id}')">✏️</button>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;color:var(--green);border-color:var(--green)" onclick="markAfspraakDone('${a.id}')" title="Markeer als afgehandeld">✓ Klaar</button>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openAfspraakModal('${a.id}')" title="Bewerken">✏️</button>
+      </div>
     `};
   }
 
@@ -1057,6 +1063,15 @@ function deleteCurrentAfspraak() {
   cars = cars.filter(c => c.id !== delId);
   deleteCarFromDB(delId);
   closeAfspraakModal(); render();
+}
+
+// Snel een losse leverancier-afspraak op 'afgehandeld' zetten vanuit de Agenda, zonder het formulier te openen
+function markAfspraakDone(id) {
+  const idx = cars.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  cars[idx] = { ...cars[idx], done: true };
+  syncCar(cars[idx]);
+  render();
 }
 
 function exportData() {
