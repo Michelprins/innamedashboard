@@ -127,13 +127,35 @@
   .repair-del { background: none; border: none; cursor: pointer; color: #ddd; font-size: 12px; padding: 0 2px; }
   .repair-del:hover { color: var(--red); }
   .repair-list-modal { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-  .repair-row { display: flex; gap: 8px; align-items: center; background: var(--gray-bg); border-radius: 6px; padding: 7px 10px; }
-  .repair-row-fields { flex: 1; display: flex; gap: 6px; }
+  .repair-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; background: var(--gray-bg); border-radius: 6px; padding: 7px 10px; }
+  .repair-row-fields { flex: 1; display: flex; gap: 6px; min-width: 220px; }
   .repair-row input[type=text] { flex: 1; padding: 5px 8px; border: 1px solid var(--gray-border); border-radius: 5px; font-size: 12px; background: white; }
+  .repair-row input[type=date] { padding: 5px 6px; border: 1px solid var(--gray-border); border-radius: 5px; font-size: 12px; background: white; max-width: 140px; }
   .repair-row input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--green); cursor: pointer; }
   .btn-add-repair { background: none; border: 1px dashed var(--gray-border); border-radius: 6px; padding: 6px 12px; font-size: 12px; color: var(--text-muted); cursor: pointer; width: 100%; text-align: center; }
   .btn-add-repair:hover { border-color: var(--orange); color: var(--orange); background: #fff8f3; }
   .extern-badge { display: inline-block; background: #fff3e0; border: 1px solid #f97316; color: #c2410c; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; }
+  .appt-badge { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 4px; display: inline-block; margin-top: 2px; }
+  .appt-badge.overdue { background: #fee2e2; color: var(--red); }
+  .appt-badge.today { background: #fee2e2; color: var(--red); }
+  .appt-badge.tomorrow { background: #fff3e0; color: #c2410c; }
+  .appt-badge.later { background: #eef2ff; color: #4338ca; }
+
+  /* AGENDA */
+  .agenda-wrap { padding: 20px 24px 24px; display: none; }
+  .agenda-wrap.active { display: block; }
+  .agenda-group { margin-bottom: 22px; }
+  .agenda-group-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: var(--text-muted); margin-bottom: 8px; padding-bottom: 6px; border-bottom: 1px solid var(--gray-border); }
+  .agenda-group-title.urgent { color: var(--red); }
+  .agenda-row { display: flex; align-items: center; gap: 14px; background: white; border: 1px solid var(--gray-border); border-radius: 7px; padding: 10px 14px; margin-bottom: 8px; }
+  .agenda-row.overdue, .agenda-row.today { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+  .agenda-date { font-size: 13px; font-weight: 800; min-width: 90px; }
+  .agenda-date.overdue, .agenda-date.today { color: var(--red); }
+  .agenda-date.tomorrow { color: #c2410c; }
+  .agenda-kenteken { font-family: monospace; font-weight: 800; font-size: 14px; }
+  .agenda-info { flex: 1; font-size: 12px; color: var(--text-muted); }
+  .agenda-vendor { font-size: 11px; font-weight: 700; color: var(--text); }
+  .agenda-empty { text-align: center; padding: 30px; color: #999; font-size: 13px; }
 
   /* TABLE */
   .table-wrap { padding: 20px 24px 24px; display: none; }
@@ -222,6 +244,7 @@
   </div>
   <div class="header-right">
     <button class="btn btn-header" onclick="exportData()">↓ Export CSV</button>
+    <button class="btn btn-header" onclick="openAfspraakModal()">📅 + Afspraak</button>
     <button class="btn btn-primary" onclick="openModal()">+ Auto toevoegen</button>
   </div>
 </header>
@@ -239,6 +262,7 @@
   <div class="view-toggle">
     <button class="view-btn active" id="btnKanban" onclick="setView('kanban')">Kanban</button>
     <button class="view-btn" id="btnTable" onclick="setView('table')">Lijst</button>
+    <button class="view-btn" id="btnAgenda" onclick="setView('agenda')">Agenda</button>
   </div>
   <input type="text" class="search-input" placeholder="Zoek kenteken of model..." id="searchInput" oninput="render()">
   <select class="filter-select" id="filterStage" onchange="render()">
@@ -277,6 +301,10 @@
     </thead>
     <tbody id="tableBody"></tbody>
   </table>
+</div>
+
+<div class="agenda-wrap" id="agendaView">
+  <div id="agendaList"></div>
 </div>
 
 <datalist id="leveranciersList">
@@ -362,6 +390,44 @@
   </div>
 </div>
 
+<!-- AFSPRAAK MODAL (losse leverancier-afspraak, niet gekoppeld aan een auto) -->
+<div class="modal-overlay" id="afspraakModalOverlay" onclick="closeAfspraakModalOnBg(event)">
+  <div class="modal">
+    <h2 id="afspraakModalTitle">Afspraak toevoegen</h2>
+    <div class="form-row">
+      <label>Leverancier *</label>
+      <input type="text" list="leveranciersList" id="aVendor" placeholder="bijv. Piebe Bruining Uitdeuken">
+    </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>Datum</label>
+        <input type="date" id="aDatum">
+      </div>
+      <div class="form-row">
+        <label>Tijd</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="time" id="aTijdVan">
+          <span style="color:var(--text-muted);font-size:12px">tot</span>
+          <input type="time" id="aTijdTot">
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Notitie</label>
+      <textarea id="aNotitie" placeholder="bijv. auto's uitdeuken, contactpersoon, bijzonderheden..."></textarea>
+    </div>
+    <div class="form-row" id="aDoneRow" style="display:none;align-items:center;gap:10px;background:var(--gray-bg);padding:10px 12px;border-radius:8px;display:flex">
+      <input type="checkbox" id="aDone" style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">
+      <label for="aDone" style="font-size:13px;font-weight:600;cursor:pointer;text-transform:none;letter-spacing:0;color:var(--text)">Afgehandeld</label>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeAfspraakModal()">Annuleren</button>
+      <button class="btn btn-danger" id="aBtnDelete" onclick="deleteCurrentAfspraak()" style="display:none">Verwijderen</button>
+      <button class="btn btn-primary" onclick="saveAfspraak()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 const STEPS = [
@@ -377,6 +443,11 @@ const STAGE_LABELS = ['Verwacht', ...STEPS, 'Extern', 'Klaar'];
 
 function isExtern(car) {
   return (car.repairs || []).some(r => !r.done && r.vendor);
+}
+
+// Onderscheid tussen echte auto-records en losse leverancier-afspraken (zelfde tabel, apart type)
+function isCar(c) {
+  return !c.isAfspraak;
 }
 
 // ===== Signalering: auto's die te lang blijven staan =====
@@ -409,8 +480,43 @@ function isRepairAlert(car, r) {
   return businessDaysSince(ref) >= ALERT_WERKDAGEN;
 }
 
+// Aantal kalenderdagen tot een datum (negatief = verstreken, 0 = vandaag)
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const target = new Date(dateStr); target.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  if (isNaN(target)) return null;
+  return Math.round((target - today) / 86400000);
+}
+
+// Urgentie-classificatie voor een afspraakdatum bij een leverancier
+function appointmentUrgency(dateStr) {
+  const d = daysUntil(dateStr);
+  if (d === null) return null;
+  if (d < 0) return 'overdue';
+  if (d === 0) return 'today';
+  if (d === 1) return 'tomorrow';
+  return 'later';
+}
+
+// Auto moet klaarstaan voor een afspraak die vandaag is of al verstreken is, maar de reparatie is nog niet afgerond
+function isAppointmentAlert(car, r) {
+  if (!r || !r.vendor || r.done || !r.afspraakDatum) return false;
+  const d = daysUntil(r.afspraakDatum);
+  return d !== null && d <= 0;
+}
+
 function hasAlert(car) {
-  return isVerwachtAlert(car) || (car.repairs || []).some(r => isRepairAlert(car, r));
+  return isVerwachtAlert(car)
+    || (car.repairs || []).some(r => isRepairAlert(car, r))
+    || (car.repairs || []).some(r => isAppointmentAlert(car, r));
+}
+
+// Losse leverancier-afspraak (niet gekoppeld aan een specifieke auto) is nog niet afgehandeld, en de datum is vandaag of al verstreken
+function isStandaloneAlert(a) {
+  if (!a.isAfspraak || a.done || !a.datum) return false;
+  const d = daysUntil(a.datum);
+  return d !== null && d <= 0;
 }
 
 // Visuele kolom: 0=Verwacht, 1-5=checklist stappen, 6=Extern, 7=Klaar
@@ -499,7 +605,7 @@ function deadlineStatus(deadline, stage) {
 function getFiltered() {
   const q = (document.getElementById('searchInput').value || '').toLowerCase();
   const fs = document.getElementById('filterStage').value;
-  return cars.filter(c => {
+  return cars.filter(isCar).filter(c => {
     const matchQ = !q || c.kenteken.toLowerCase().includes(q) || (c.merk||'').toLowerCase().includes(q) || (c.model||'').toLowerCase().includes(q);
     const matchS = fs === '' || String(getDisplayStage(c)) === fs;
     const matchAlert = !showOnlyAlert || hasAlert(c);
@@ -510,22 +616,26 @@ function getFiltered() {
 function render() {
   updateStats();
   if (currentView === 'kanban') renderKanban();
+  else if (currentView === 'agenda') renderAgenda();
   else renderTable();
 }
 
 function updateStats() {
   const now = new Date(); now.setHours(0,0,0,0);
-  document.getElementById('statTotal').textContent = cars.length;
-  document.getElementById('statActive').textContent = cars.filter(c => !c.verwacht && getStage(c) < 5).length;
-  const klaarNum = cars.filter(c => getDisplayStage(c) === 7).length;
+  const autos = cars.filter(isCar);
+  const afspraken = cars.filter(c => c.isAfspraak);
+  document.getElementById('statTotal').textContent = autos.length;
+  document.getElementById('statActive').textContent = autos.filter(c => !c.verwacht && getStage(c) < 5).length;
+  const klaarNum = autos.filter(c => getDisplayStage(c) === 7).length;
   document.getElementById('statKlaar').textContent = klaarNum;
   document.getElementById('klaarCount').textContent = klaarNum;
   const btnV = document.getElementById('btnVoltooide');
   if (btnV) btnV.style.background = showKlaar ? 'var(--black)' : '';
   if (btnV) btnV.style.color = showKlaar ? 'white' : '';
-  document.getElementById('statExtern').textContent = cars.filter(c => isExtern(c)).length;
-  document.getElementById('statOverdue').textContent = cars.filter(c => c.deadline && getStage(c) < 5 && new Date(c.deadline) < now).length;
-  document.getElementById('statAlert').textContent = cars.filter(c => hasAlert(c)).length;
+  document.getElementById('statExtern').textContent = autos.filter(c => isExtern(c)).length;
+  document.getElementById('statOverdue').textContent = autos.filter(c => c.deadline && getStage(c) < 5 && new Date(c.deadline) < now).length;
+  const alertCount = autos.filter(c => hasAlert(c)).length + afspraken.filter(a => isStandaloneAlert(a)).length;
+  document.getElementById('statAlert').textContent = alertCount;
   const alertTile = document.getElementById('statAlertTile');
   if (alertTile) alertTile.classList.toggle('active', showOnlyAlert);
 }
@@ -563,7 +673,7 @@ function renderKanban() {
   const showExtern = filterStage === '' || filterStage === '6';
   if (showExtern) {
     const vendors = [...new Set(
-      cars.flatMap(c => (c.repairs||[]).filter(r => !r.done && r.vendor).map(r => r.vendor))
+      cars.filter(isCar).flatMap(c => (c.repairs||[]).filter(r => !r.done && r.vendor).map(r => r.vendor))
     )].sort();
     vendors.forEach(vendor => {
       const vendorCars = filtered.filter(c =>
@@ -620,14 +730,23 @@ function buildCard(car) {
   const repairsHtml = repairs.length ? `
     <div class="repairs-section">
       <div class="repairs-header"><span>🔧 Uitbestedingen</span><span style="color:${repairs.every(r=>r.done)?'var(--green)':'var(--accent)'}">${repairs.filter(r=>r.done).length}/${repairs.length} klaar</span></div>
-      ${repairs.map(r => `
+      ${repairs.map(r => {
+        const urgency = !r.done ? appointmentUrgency(r.afspraakDatum) : null;
+        const apptLabel = urgency === 'overdue' ? '📅 Afspraak verlopen ' + fmtDate(r.afspraakDatum) + ' — nog niet klaar!'
+          : urgency === 'today' ? '📅 Afspraak vandaag — nog niet klaar!'
+          : urgency === 'tomorrow' ? '📅 Afspraak morgen'
+          : urgency === 'later' ? '📅 Afspraak ' + fmtDate(r.afspraakDatum)
+          : '';
+        return `
         <div class="repair-item ${r.done?'done':''}">
           <input type="checkbox" ${r.done?'checked':''} onclick="toggleRepair('${car.id}','${r.id}')">
           <div class="repair-info">
             <div class="repair-desc">${r.desc}</div>
             ${r.vendor ? `<div class="repair-vendor" style="${isRepairAlert(car, r) ? 'color:var(--red);font-weight:700' : ''}">📍 ${r.vendor}${isRepairAlert(car, r) ? ' — ⚠️ al ' + businessDaysSince(r.openedAt || car.datumInname || car.createdAt) + ' werkdagen open' : ''}</div>` : ''}
+            ${apptLabel ? `<span class="appt-badge ${urgency}">${apptLabel}</span>` : ''}
           </div>
-        </div>`).join('')}
+        </div>`;
+      }).join('')}
     </div>` : '';
 
   card.innerHTML = `
@@ -706,10 +825,91 @@ function setView(v) {
   currentView = v;
   document.getElementById('btnKanban').classList.toggle('active', v === 'kanban');
   document.getElementById('btnTable').classList.toggle('active', v === 'table');
+  document.getElementById('btnAgenda').classList.toggle('active', v === 'agenda');
   document.getElementById('kanbanView').classList.toggle('active', v === 'kanban');
   document.getElementById('tableView').classList.toggle('active', v === 'table');
+  document.getElementById('agendaView').classList.toggle('active', v === 'agenda');
   render();
 }
+
+function renderAgenda() {
+  const list = document.getElementById('agendaList');
+  list.innerHTML = '';
+
+  // Alle open (niet-klaar) reparaties met een leverancier verzamelen (gekoppeld aan een auto)
+  const items = [];
+  cars.filter(isCar).forEach(car => {
+    (car.repairs || []).forEach(r => {
+      if (!r.done && r.vendor) items.push({ type: 'repair', car, r, datum: r.afspraakDatum });
+    });
+  });
+  // Losse leverancier-afspraken (niet gekoppeld aan een auto) toevoegen
+  cars.filter(c => c.isAfspraak && !c.done).forEach(a => {
+    items.push({ type: 'afspraak', a, datum: a.datum });
+  });
+
+  const metVerlopen = items.filter(i => appointmentUrgency(i.datum) === 'overdue');
+  const metVandaag = items.filter(i => appointmentUrgency(i.datum) === 'today');
+  const metMorgen = items.filter(i => appointmentUrgency(i.datum) === 'tomorrow');
+  const metLater = items.filter(i => appointmentUrgency(i.datum) === 'later')
+    .sort((x, y) => (x.datum < y.datum ? -1 : 1));
+  const zonderDatum = items.filter(i => !i.datum);
+
+  if (!items.length) {
+    list.innerHTML = '<div class="agenda-empty">Geen openstaande afspraken bij leveranciers.</div>';
+    return;
+  }
+
+  function buildRowHtml(item) {
+    const urgency = appointmentUrgency(item.datum) || '';
+    const dateLabel = item.datum ? fmtDate(item.datum) : '—';
+    if (item.type === 'repair') {
+      const { car, r } = item;
+      return { urgency, html: `
+        <div class="agenda-date ${urgency}">${dateLabel}</div>
+        <div class="agenda-kenteken">${car.kenteken}</div>
+        <div class="agenda-info">
+          <div class="agenda-vendor">📍 ${r.vendor} — ${r.desc}</div>
+          <div>${[car.merk, car.model].filter(Boolean).join(' ')}</div>
+        </div>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openModal('${car.id}')">✏️</button>
+      `};
+    }
+    const a = item.a;
+    const tijd = [a.tijdVan, a.tijdTot].filter(Boolean).join(' – ');
+    return { urgency, html: `
+      <div class="agenda-date ${urgency}">${dateLabel}${tijd ? '<br><span style="font-size:11px;font-weight:600">' + tijd + '</span>' : ''}</div>
+      <div class="agenda-kenteken">—</div>
+      <div class="agenda-info">
+        <div class="agenda-vendor">📍 ${a.vendor} (geen specifieke auto)</div>
+        <div>${a.notitie || ''}</div>
+      </div>
+      <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="openAfspraakModal('${a.id}')">✏️</button>
+    `};
+  }
+
+  function renderGroup(title, arr, urgentTitle) {
+    if (!arr.length) return;
+    const group = document.createElement('div');
+    group.className = 'agenda-group';
+    group.innerHTML = `<div class="agenda-group-title${urgentTitle ? ' urgent' : ''}">${title} (${arr.length})</div>`;
+    arr.forEach(item => {
+      const { urgency, html } = buildRowHtml(item);
+      const row = document.createElement('div');
+      row.className = `agenda-row ${urgency}`;
+      row.innerHTML = html;
+      group.appendChild(row);
+    });
+    list.appendChild(group);
+  }
+
+  renderGroup('⚠️ Afspraak verlopen — nog niet klaar', metVerlopen, true);
+  renderGroup('📅 Vandaag', metVandaag, true);
+  renderGroup('📅 Morgen', metMorgen, false);
+  renderGroup('Later deze periode', metLater, false);
+  renderGroup('Geen afspraakdatum ingevuld', zonderDatum, false);
+}
+
 
 function openModal(id) {
   editingId = id || null;
@@ -793,6 +993,72 @@ function deleteCurrentCar() {
   closeModal(); render();
 }
 
+// ===== Losse leverancier-afspraken (niet gekoppeld aan een auto) =====
+let editingAfspraakId = null;
+
+function openAfspraakModal(id) {
+  editingAfspraakId = id || null;
+  document.getElementById('aBtnDelete').style.display = id ? 'inline-block' : 'none';
+  document.getElementById('aDoneRow').style.display = id ? 'flex' : 'none';
+  document.getElementById('afspraakModalTitle').textContent = id ? 'Afspraak bewerken' : 'Afspraak toevoegen';
+  if (id) {
+    const a = cars.find(c => c.id === id);
+    if (!a) return;
+    document.getElementById('aVendor').value = a.vendor || '';
+    document.getElementById('aDatum').value = a.datum || '';
+    document.getElementById('aTijdVan').value = a.tijdVan || '';
+    document.getElementById('aTijdTot').value = a.tijdTot || '';
+    document.getElementById('aNotitie').value = a.notitie || '';
+    document.getElementById('aDone').checked = !!a.done;
+  } else {
+    document.getElementById('aVendor').value = '';
+    document.getElementById('aDatum').value = '';
+    document.getElementById('aTijdVan').value = '';
+    document.getElementById('aTijdTot').value = '';
+    document.getElementById('aNotitie').value = '';
+    document.getElementById('aDone').checked = false;
+  }
+  document.getElementById('afspraakModalOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('aVendor').focus(), 100);
+}
+
+function closeAfspraakModal() { document.getElementById('afspraakModalOverlay').classList.remove('open'); editingAfspraakId = null; }
+function closeAfspraakModalOnBg(e) { if (e.target === document.getElementById('afspraakModalOverlay')) closeAfspraakModal(); }
+
+function saveAfspraak() {
+  const vendor = document.getElementById('aVendor').value.trim();
+  if (!vendor) { alert('Vul een leverancier in.'); return; }
+  const data = {
+    isAfspraak: true,
+    vendor,
+    datum: document.getElementById('aDatum').value,
+    tijdVan: document.getElementById('aTijdVan').value,
+    tijdTot: document.getElementById('aTijdTot').value,
+    notitie: document.getElementById('aNotitie').value.trim(),
+    done: document.getElementById('aDone').checked,
+  };
+  if (editingAfspraakId) {
+    const idx = cars.findIndex(c => c.id === editingAfspraakId);
+    if (idx !== -1) { cars[idx] = { ...cars[idx], ...data }; syncCar(cars[idx]); }
+  } else {
+    data.id = Date.now().toString(36) + Math.random().toString(36).slice(2);
+    data.createdAt = new Date().toISOString();
+    cars.push(data);
+    syncCar(data);
+  }
+  closeAfspraakModal(); render();
+}
+
+function deleteCurrentAfspraak() {
+  if (!editingAfspraakId) return;
+  const a = cars.find(c => c.id === editingAfspraakId);
+  if (!a || !confirm(`Weet je zeker dat je de afspraak met ${a.vendor} wilt verwijderen?`)) return;
+  const delId = editingAfspraakId;
+  cars = cars.filter(c => c.id !== delId);
+  deleteCarFromDB(delId);
+  closeAfspraakModal(); render();
+}
+
 function exportData() {
   const rows = [['Kenteken','Merk','Model','Info','Innamedatum','Deadline','Stap',...STEPS,'Notities']];
   cars.forEach(c => {
@@ -852,6 +1118,7 @@ function addRepairRow(r) {
       <input type="text" placeholder="Omschrijving (bijv. bumper spuiten)" value="${r ? r.desc||'' : ''}" data-field="desc">
       <input type="text" list="leveranciersList" placeholder="Leverancier" value="${r ? r.vendor||'' : ''}" data-field="vendor" style="max-width:160px">
     </div>
+    <input type="date" title="Afspraak: wanneer moet de auto hier klaarstaan/opgehaald worden" value="${r ? r.afspraakDatum||'' : ''}" data-field="afspraakDatum">
     <input type="checkbox" title="Klaar" ${r && r.done ? 'checked' : ''} data-field="done">
     <button type="button" class="repair-del" onclick="this.parentElement.remove()" title="Verwijderen">✕</button>
   `;
@@ -872,6 +1139,7 @@ function collectRepairRows() {
       vendor,
       done,
       openedAt: opened,
+      afspraakDatum: row.querySelector('[data-field=afspraakDatum]').value || '',
     };
   }).filter(r => r.desc);
 }
@@ -931,7 +1199,7 @@ function terugzetten(id) {
   render(); syncCar(car);
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeAfspraakModal(); } });
 init();
 </script>
 </body>
