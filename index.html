@@ -506,10 +506,38 @@ function isAppointmentAlert(car, r) {
   return d !== null && d <= 0;
 }
 
+// Bijhouden op welke datum elke checklist-stap is afgevinkt (voor 'te lang in deze stap'-signalering)
+function updateStepDates(oldCl, newCl, oldDates) {
+  const dates = (oldDates || []).slice();
+  const today = new Date().toISOString().split('T')[0];
+  for (let i = 0; i < newCl.length; i++) {
+    if (newCl[i] && !oldCl[i]) dates[i] = today; // net afgevinkt
+    if (!newCl[i]) dates[i] = ''; // uitgevinkt: datum weer weg
+  }
+  return dates;
+}
+
+// Sinds wanneer zit een auto in zijn HUIDIGE (nog niet afgevinkte) stap
+function stageReferenceDate(car) {
+  const stage = getStage(car);
+  if (stage === 0) return car.datumInname || car.createdAt;
+  const dates = car.stepDates || [];
+  return dates[stage - 1] || car.datumInname || car.createdAt;
+}
+
+// Auto zit al > 5 werkdagen in dezelfde stap, terwijl hij niet extern staat (dat heeft al eigen signalering)
+function isStageStuckAlert(car) {
+  if (car.verwacht || isExtern(car)) return false;
+  const stage = getStage(car);
+  if (stage >= 5) return false;
+  return businessDaysSince(stageReferenceDate(car)) >= ALERT_WERKDAGEN;
+}
+
 function hasAlert(car) {
   return isVerwachtAlert(car)
     || (car.repairs || []).some(r => isRepairAlert(car, r))
-    || (car.repairs || []).some(r => isAppointmentAlert(car, r));
+    || (car.repairs || []).some(r => isAppointmentAlert(car, r))
+    || isStageStuckAlert(car);
 }
 
 // Losse leverancier-afspraak (niet gekoppeld aan een specifieke auto) is nog niet afgehandeld, en de datum is vandaag of al verstreken
@@ -710,6 +738,7 @@ function buildCard(car) {
   const noteHtml = car.notes ? `<div class="card-note" title="${car.notes}">📝 ${car.notes}</div>` : '';
   const metaHtml = [fmtDate(car.datumInname) ? `Inname: ${fmtDate(car.datumInname)}` : '', car.info].filter(Boolean).join(' · ');
   const verwachtAlertHtml = isVerwachtAlert(car) ? `<div class="card-alert-badge">⚠️ Waarschijnlijk al binnen — nagaan &amp; afmelden</div>` : '';
+  const stageStuckHtml = isStageStuckAlert(car) ? `<div class="card-alert-badge">⚠️ Al ${businessDaysSince(stageReferenceDate(car))} werkdagen bij "${STEPS[stage]}" — controleren</div>` : '';
 
   const checkHtml = STEPS.map((step, i) => `
     <div class="check-item ${cl[i] ? 'done' : ''}" onclick="toggleStep('${car.id}', ${i})">
@@ -760,6 +789,7 @@ function buildCard(car) {
     ${metaHtml ? `<div class="card-meta">${metaHtml}</div>` : ''}
     ${car.verwacht && car.verwachtDatum ? `<div class="card-meta" style="color:var(--blue);font-weight:600">📅 Verwacht: ${fmtDate(car.verwachtDatum)}</div>` : ''}
     ${verwachtAlertHtml}
+    ${stageStuckHtml}
     ${car.verwacht ? `<button onclick="bevestigBinnenkomst('${car.id}')" style="margin-top:6px;width:100%;padding:6px;background:var(--orange);color:white;border:none;border-radius:5px;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:0.3px">✓ Auto is binnen</button>` : ''}
     ${externBadgeHtml}
     ${dlHtml}${noteHtml}
@@ -781,8 +811,10 @@ function toggleRepair(carId, repairId) {
 function toggleStep(id, stepIdx) {
   const car = cars.find(c => c.id === id);
   if (!car) return;
+  const oldCl = (car.checklist || [false,false,false,false,false]).slice();
   if (!car.checklist) car.checklist = [false,false,false,false,false];
   car.checklist[stepIdx] = !car.checklist[stepIdx];
+  car.stepDates = updateStepDates(oldCl, car.checklist, car.stepDates);
   render();
   syncCar(car);
 }
@@ -978,7 +1010,12 @@ function saveCar() {
   if (editingId) data.checklist = modalCl;
   if (editingId) {
     const idx = cars.findIndex(c => c.id === editingId);
-    if (idx !== -1) { cars[idx] = { ...cars[idx], ...data }; syncCar(cars[idx]); }
+    if (idx !== -1) {
+      const oldCl = (cars[idx].checklist || [false,false,false,false,false]).slice();
+      data.stepDates = updateStepDates(oldCl, modalCl, cars[idx].stepDates);
+      cars[idx] = { ...cars[idx], ...data };
+      syncCar(cars[idx]);
+    }
   } else {
     data.id = Date.now().toString(36) + Math.random().toString(36).slice(2);
     data.createdAt = new Date().toISOString();
